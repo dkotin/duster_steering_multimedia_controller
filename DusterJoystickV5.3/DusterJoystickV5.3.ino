@@ -5,11 +5,9 @@
 // PINOUTS ::::::::::::::::::::::::::::::::::::::::::::::
 //
 // joystick pins seems like this, lets define pin numbers
-// штыри джостика кажутся как это, позволяют определить номера штыря
 //           ** [ 2 6 3 ] **************
 //           ** [ 4 5 1 ] ***********
-/// разьем джост //номер пина ардуино//
-const byte JOY_1 = 7;//
+const byte JOY_1 = 7;
 const byte JOY_2 = 2;
 const byte JOY_3 = 3;
 const byte JOY_4 = 4;
@@ -17,25 +15,21 @@ const byte JOY_5 = 5;
 const byte JOY_6 = 6;
 
 
-//----------------- Ц А П ----------------------------------------------------------------------------
-// пример "OUT_VOLUMEMINUS = 2;  //0010 //v"-- значит активный выход 9//на нём ноль//8,10 и11 пины входы
-//-----------------------  десят//бинарн//символ
 const byte OUT_SEEKUP      = 1;  //0001 //E
 const byte OUT_VOLUMEMINUS = 2;  //0010 //v
 const byte OUT_SOURCEAUDIO = 3;  //0011 //S
 const byte OUT_MODE        = 4;  //0100 //M
 const byte OUT_SEEKDOWN    = 5;  //0101 //e
-const byte OUT_VOLUMEPLUS  = 4;  //0110 //V
-const byte ON_PHONE        = 7;  //0111 //P
-const byte OFF_PHONE       = 8;  //1000 //P
+const byte OUT_VOLUMEPLUS  = 6;  //0110 //V
+const byte RADIO           = 7;  //0111 //P
+const byte MUTE            = 8;  //1000 //X
 
 // TIMOUTS and LEVELS ::::::::::::::::::::::::::::::::::::::::::
-// время активнисти пина , имитация нажатия
-int KeyPressedMS = 120;      // время имитации нажатой кнопки
-#define Prog_Time   3000      // время имитации нажатой кнопки для программирования
-// how long pause between key stroke
-const int KeyPauseMS = 100;   // пауза после имитации нажатия
-// loops count between repeats while V v keys HOLD
+int KeyPressedMS = 90;
+#define Prog_Time   2500
+// pause between key strokes
+const int KeyPauseMS = 90;
+// loops count between repeats while V or v keys HOLD
 const int HoldKeyLoopMax = 5000;
 
 // variables
@@ -43,7 +37,7 @@ const byte ROWS = 3;
 const byte COLS = 3;
 char keys[ROWS][COLS] = {
   {'v', 'M', 'V'}, // volume down, Mode, Volume up
-  {'S', 'P', 'X'}, // Source audio, Phone, Impossible button
+  {'S', 'P', 'X'}, // Source audio, Radio, Mute
   {'1', '2', '3'}  // encoder as keys
 };
 byte rowPins[ROWS] = {JOY_4, JOY_5, JOY_6}; // Joy 4 5 6
@@ -53,9 +47,8 @@ char lastEncodeValue = '#';
 char keyPressed = '#';
 int HoldKeyLoop = -1;
 byte lastHoldKey = '?';
-bool TELEFON = 0;
 
-// раскомментируйте эту строку, если хотите увидеть отладочный вывод и определить коды клавиш.
+// uncomment this to enable debug output
 #define DEBUG_TO_COMPORT
 
 void setup() {
@@ -68,7 +61,7 @@ void setup() {
 
 void loop() {
 #ifdef DEBUG_TO_COMPORT
-  simKey_Serial();    // функция имитации ЦАП через печать в порт
+  simKey_Serial();
 #endif
   // Hold-retry 'V' and 'v' keys
   if (HoldKeyLoop == 0) {
@@ -86,21 +79,19 @@ void loop() {
 
 
   // read keyboard, and if there is a new key event...
-  // чтение клавиатуры, и если есть новое ключевое событие...
   if (kpd.getKeys())
   {
     // Scan the whole key list.
     for (int i = 0; i < LIST_MAX; i++)
     {
-      if (  millis() < 1000) {         // в первую секунду включени ардуино
-        if ( kpd.key[i].kchar == 'M') { // если нажата кнопка "МОDE"
-          KeyPressedMS = Prog_Time; // увеличиваем время работы кнопок
+      if (  millis() < 1000) { // if "МОDE (OK)" button pressed in first second after powerup - enable learning (long presses)
+        if ( kpd.key[i].kchar == 'M') {
+          KeyPressedMS = Prog_Time;
         }
       }
       keyPressed = '?';
 
       // if any key release, stop HOLD key retries
-      // при отпускании ключа прекратите попытки удержания ключа
       if (kpd.key[i].kstate == RELEASED) {
         HoldKeyLoop = -1;
 #ifdef DEBUG_TO_COMPORT
@@ -109,7 +100,6 @@ void loop() {
       };
 
       // Handle HOLD 'v' and 'V' keys event - start to do series
-      // 'v' and 'V' серия повторов при удержании кнопки
       if ( ( kpd.key[i].kchar == 'V' || kpd.key[i].kchar == 'v') && kpd.key[i].kstate == HOLD	)
       {
         keyPressed = kpd.key[i].kchar;
@@ -124,7 +114,6 @@ void loop() {
       }
 
       // find keys that have changed state and it's new state is PRESSED.
-      // найти ключи, которые изменили состояние, и это новое состояние нажата.
       if ( kpd.key[i].stateChanged && kpd.key[i].kstate == PRESSED)
       {
         keyPressed = kpd.key[i].kchar;
@@ -142,7 +131,7 @@ void loop() {
             lastEncodeValue = keyPressed;
             keyPressed = 'E'; // up
           } else {
-            keyPressed = '?'; // strange message from encoder// странное сообщение от кодировщика
+            keyPressed = '?'; // strange message from encoder
           }
         }
         ProcessKeyPressed(keyPressed);
@@ -158,46 +147,45 @@ void loop() {
 }  // End main loop// Конец основного цикла
 
 // process key event: send keystroke to output
-// событие ключа процесса: отправить нажатие клавиши на вывод
 void ProcessKeyPressed(byte keyPressed1) {
   // process output
   switch (keyPressed1) {
     case 'S': simKey(OUT_SOURCEAUDIO); break;
     case 'V': simKey(OUT_VOLUMEPLUS) ; break;
     case 'v': simKey(OUT_VOLUMEMINUS); break;
-    case 'P': simKey(ON_PHONE); break;
-    case 'X': simKey(OFF_PHONE); break;
+    case 'P': simKey(RADIO); break;
+    case 'X': simKey(MUTE); break;
     case 'E': simKey(OUT_SEEKUP);   break;
     case 'e': simKey(OUT_SEEKDOWN); break;
     case 'M': simKey(OUT_MODE);     break;
   }
 }
 
-// simulate one key press// имитация нажатия одной клавиши
+// simulate one key press
 void simKey(byte leg) {
-  DDRB = DDRB | leg;     // назначаем  выходы
-  PORTB &= leg;          // устанавливаем  LOW на обьявленные выходы
+  DDRB = DDRB | leg;
+  PORTB &= leg;
   digitalWrite(13, HIGH);
   delay(KeyPressedMS);
   for (byte i = 8; i <= 11; i++) {
-    pinMode(i, INPUT); // устанавливаем как входа
+    pinMode(i, INPUT);
   }
   digitalWrite(13, LOW);
   delay(KeyPauseMS);
 }
-//-------------имация ЦАП через порт -------------------------------------
+
 #ifdef DEBUG_TO_COMPORT
 void simKey_Serial() {
-  if (Serial.available() ) {         // если в порту что то есть
+  if (Serial.available() ) {
     String  Str_Buff = "";
-    Str_Buff = Serial.readString(); // читаем буфер порта
-    byte  CAP =  Str_Buff.toInt();  // конвертирование строки  в int
+    Str_Buff = Serial.readString();
+    byte  CAP =  Str_Buff.toInt();
 
-    if (CAP >= 0 && CAP <= 15) {     // если число укладывается в наш диапозон
-      simKey(CAP);                  // активируем ЦАП
+    if (CAP >= 0 && CAP <= 15) {
+      simKey(CAP);
       Serial.print("OK,OUT_CAP = "); Serial.println(CAP);
     }
-    else Serial.println("HET!  OT 0 DO 15"); // предупреждаем о диапозоне ЦАП
+    else Serial.println("HET!  OT 0 DO 15");
   }
 }
 #endif
