@@ -25,10 +25,10 @@ const byte RADIO           = 7;  //0111 //P
 const byte MUTE            = 8;  //1000 //X
 
 // TIMOUTS and LEVELS ::::::::::::::::::::::::::::::::::::::::::
-int KeyPressedMS = 90;
+int KeyPressedMS = 120;
 #define Prog_Time   2500
 // pause between key strokes
-const int KeyPauseMS = 90;
+const int KeyPauseMS = 120;
 // loops count between repeats while V or v keys HOLD
 const int HoldKeyLoopMax = 5000;
 
